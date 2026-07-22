@@ -15,8 +15,6 @@ public partial class MeterRow : System.Windows.Controls.UserControl
     private static readonly MediaBrush ListenBrush = CreateBrush(80, 170, 255);
     private static readonly MediaBrush ListenButtonBrush = CreateBrush(38, 92, 145);
     private static readonly MediaBrush InactiveDotBrush = CreateBrush(85, 97, 107);
-    private static readonly System.Windows.Media.FontFamily IconFont = new("Segoe MDL2 Assets");
-    private static readonly System.Windows.Media.FontFamily TextFont = new("Segoe UI");
     private readonly AppSettings _settings;
 
     public MeterRow(string deviceId, string deviceName, AppSettings settings)
@@ -110,8 +108,8 @@ public partial class MeterRow : System.Windows.Controls.UserControl
         var statusBrush = showClip ? ClipBrush : isMuted ? MediaBrushes.IndianRed : isListening ? ListenBrush : LiveBrush;
         HorizontalStatusText.Text = VerticalStatusText.Text = status;
         HorizontalStatusText.Foreground = VerticalStatusText.Foreground = statusBrush;
-        HorizontalMicrophoneGlyph.FontFamily = VerticalMicrophoneGlyph.FontFamily = isMuted ? TextFont : IconFont;
-        HorizontalMicrophoneGlyph.Text = VerticalMicrophoneGlyph.Text = isMuted ? "×" : "\uE720";
+        HorizontalMuteSlash.Visibility = VerticalMuteSlash.Visibility =
+            isMuted ? Visibility.Visible : Visibility.Collapsed;
         HorizontalListenButton.Background = VerticalListenButton.Background = isListening ? ListenButtonBrush : MediaBrushes.Transparent;
         CompactMuteDot.Fill = isMuted ? ClipBrush : LiveBrush;
         CompactListenDot.Fill = isListening ? ListenBrush : InactiveDotBrush;

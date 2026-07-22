@@ -15,6 +15,7 @@ public sealed class GlobalHotkeyService : IDisposable
     private bool _registered;
 
     public event EventHandler? Pressed;
+    public bool IsRegistered => _registered;
 
     public bool Register(Window window, uint modifiers, int virtualKey)
     {

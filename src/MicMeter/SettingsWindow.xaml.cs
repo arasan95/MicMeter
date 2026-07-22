@@ -1,8 +1,10 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using MicMeter.Models;
 using MicMeter.Services;
 
@@ -10,6 +12,7 @@ namespace MicMeter;
 
 public partial class SettingsWindow : Window
 {
+    private const int DwmwaUseImmersiveDarkMode = 20;
     private static readonly IReadOnlyDictionary<string, string> EnglishLabels =
         new Dictionary<string, string>
         {
@@ -30,6 +33,7 @@ public partial class SettingsWindow : Window
             ["Flat Black（角丸なし）"] = "Flat Black (square corners)",
             ["言語"] = "Language",
             ["常に手前に表示"] = "Always on top",
+            ["Windows起動時に自動起動"] = "Start with Windows",
             ["全ミュート・ホットキー"] = "Mute-all hotkey",
             ["表示項目"] = "Visible elements",
             ["デバイス名"] = "Device name",
@@ -51,15 +55,12 @@ public partial class SettingsWindow : Window
             ["高色へ切替 (dB)"] = "High threshold (dB)",
             ["細くリサイズすると文字は自動で隠れ、ミュートとリスニングは点表示になります。耳ボタンはヘッドホン使用を推奨します。"] =
                 "Text is hidden automatically at compact sizes; mute and listening become status dots. Headphones are recommended when listening.",
-            ["キャンセル"] = "Cancel",
-            ["保存"] = "Save"
+            ["閉じる"] = "Close"
         };
 
     private readonly AppSettings _settings;
     private readonly ObservableCollection<DeviceSelectionItem> _deviceItems;
-    private readonly double _initialScale;
-    private readonly MeterDisplayOrientation _initialOrientation;
-    private readonly int _initialDeviceCount;
+    private bool _initializing = true;
     private bool _capturingHotkey;
     private uint _pendingHotkeyModifiers;
     private int _pendingHotkeyVirtualKey;
@@ -67,7 +68,7 @@ public partial class SettingsWindow : Window
     private string _midColor;
     private string _highColor;
 
-    public event EventHandler? SettingsSaved;
+    public event EventHandler<SettingsChangedEventArgs>? SettingsChanged;
     public event EventHandler? MuteOverlayPlacementRequested;
 
     public SettingsWindow(AppSettings settings, IReadOnlyList<AudioDeviceInfo> devices)
@@ -75,9 +76,6 @@ public partial class SettingsWindow : Window
         InitializeComponent();
         _settings = settings;
         settings.Migrate();
-        _initialScale = settings.Scale;
-        _initialOrientation = settings.DisplayOrientation;
-        _initialDeviceCount = settings.DeviceIds.Count;
         _pendingHotkeyModifiers = settings.MuteHotkeyModifiers;
         _pendingHotkeyVirtualKey = settings.MuteHotkeyVirtualKey;
         _lowColor = settings.LowLevelColor;
@@ -97,12 +95,12 @@ public partial class SettingsWindow : Window
         DeviceListBox.ItemsSource = _deviceItems;
 
         PlacementComboBox.ItemsSource = GetPlacements(settings.UiLanguage == AppLanguage.English);
-        PlacementComboBox.DisplayMemberPath = "Item1";
-        PlacementComboBox.SelectedValuePath = "Item2";
         PlacementComboBox.SelectedValue = settings.Placement;
         ScaleSlider.Value = settings.Scale;
         OpacitySlider.Value = settings.Opacity;
         TopmostCheckBox.IsChecked = settings.Topmost;
+        StartWithWindowsCheckBox.IsChecked = StartupService.IsEnabled();
+        settings.StartWithWindows = StartWithWindowsCheckBox.IsChecked == true;
         UiLanguageComboBox.SelectedIndex = settings.UiLanguage == AppLanguage.English ? 1 : 0;
         UpdateHotkeyButton();
         OrientationComboBox.SelectedIndex = settings.DisplayOrientation == MeterDisplayOrientation.Vertical ? 1 : 0;
@@ -132,16 +130,15 @@ public partial class SettingsWindow : Window
 
         SegmentCountComboBox.SelectedIndex = Math.Max(0, SegmentCountComboBox.SelectedIndex);
         ApplyLanguage();
+        WireImmediateApplyEvents();
+        _initializing = false;
     }
 
-    private void SaveButton_Click(object sender, RoutedEventArgs e)
+    private void ApplyChanges()
     {
         var selectedDevices = _deviceItems.Where(item => item.IsSelected).ToArray();
         if (selectedDevices.Length == 0)
         {
-            System.Windows.MessageBox.Show(this,
-                T("表示する入力デバイスを1つ以上選択してください。", "Select at least one input device."), "MicMeter",
-                MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -149,18 +146,26 @@ public partial class SettingsWindow : Window
             !TryParseDb(HighThresholdTextBox.Text, out var highThreshold) ||
             midThreshold < LevelMath.MinimumDb || highThreshold > 0 || midThreshold >= highThreshold)
         {
-            System.Windows.MessageBox.Show(this,
-                T("切替位置は -60～0 dB の範囲で、中レベルを高レベルより小さく設定してください。",
-                    "Thresholds must be between -60 and 0 dB, and the mid threshold must be lower than the high threshold."),
-                "MicMeter", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
-        _settings.DeviceIds = selectedDevices.Select(device => device.Id).ToList();
+        var selectedDeviceIds = selectedDevices.Select(device => device.Id).ToList();
+        var requiresReconnect = !_settings.DeviceIds.SequenceEqual(selectedDeviceIds);
+        var resetWindowSize = Math.Abs(_settings.Scale - ScaleSlider.Value) > 0.001 ||
+                              _settings.DisplayOrientation != (OrientationComboBox.SelectedIndex == 1
+                                  ? MeterDisplayOrientation.Vertical
+                                  : MeterDisplayOrientation.Horizontal) || requiresReconnect;
+        _settings.DeviceIds = selectedDeviceIds;
         _settings.DeviceId = null;
         _settings.Scale = ScaleSlider.Value;
         _settings.Opacity = OpacitySlider.Value;
         _settings.Topmost = TopmostCheckBox.IsChecked == true;
+        var startWithWindows = StartWithWindowsCheckBox.IsChecked == true;
+        if (_settings.StartWithWindows != startWithWindows || StartupService.IsEnabled() != startWithWindows)
+        {
+            StartupService.SetEnabled(startWithWindows);
+        }
+        _settings.StartWithWindows = startWithWindows;
         _settings.UiLanguage = IsEnglish ? AppLanguage.English : AppLanguage.Japanese;
         _settings.MuteHotkeyModifiers = _pendingHotkeyModifiers;
         _settings.MuteHotkeyVirtualKey = _pendingHotkeyVirtualKey;
@@ -194,19 +199,72 @@ public partial class SettingsWindow : Window
             _settings.SegmentCount = segmentCount;
         }
 
-        if (Math.Abs(_initialScale - _settings.Scale) > 0.001 ||
-            _initialOrientation != _settings.DisplayOrientation ||
-            _initialDeviceCount != _settings.DeviceIds.Count)
+        if (resetWindowSize)
         {
             _settings.WindowWidth = null;
             _settings.WindowHeight = null;
         }
 
-        SettingsSaved?.Invoke(this, EventArgs.Empty);
-        Close();
+        SettingsChanged?.Invoke(this, new SettingsChangedEventArgs(requiresReconnect));
     }
 
-    private void CancelButton_Click(object sender, RoutedEventArgs e) => Close();
+    private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
+
+    private void Window_SourceInitialized(object? sender, EventArgs e)
+    {
+        var enabled = 1;
+        DwmSetWindowAttribute(new WindowInteropHelper(this).Handle, DwmwaUseImmersiveDarkMode,
+            ref enabled, sizeof(int));
+    }
+
+    private void WireImmediateApplyEvents()
+    {
+        ScaleSlider.ValueChanged += ImmediateControlChanged;
+        OpacitySlider.ValueChanged += ImmediateControlChanged;
+        PlacementComboBox.SelectionChanged += ImmediateSelectionChanged;
+        SegmentCountComboBox.SelectionChanged += ImmediateSelectionChanged;
+        OrientationComboBox.SelectionChanged += ImmediateSelectionChanged;
+        ThemeComboBox.SelectionChanged += ImmediateSelectionChanged;
+        var checkBoxes = new[]
+        {
+            TopmostCheckBox, StartWithWindowsCheckBox, ShowDeviceNameCheckBox, ShowLevelTextCheckBox,
+            ShowStatusTextCheckBox, ShowMuteControlCheckBox, ShowListeningControlCheckBox,
+            ShowPeakHoldCheckBox, ShowClippingWarningCheckBox, ShowTrayMeterCheckBox,
+            PlayMuteSoundsCheckBox, ShowMuteOverlayCheckBox
+        };
+        foreach (var checkBox in checkBoxes)
+        {
+            checkBox.Click += ImmediateControlChanged;
+        }
+        MidThresholdTextBox.LostFocus += ImmediateControlChanged;
+        HighThresholdTextBox.LostFocus += ImmediateControlChanged;
+        foreach (var item in _deviceItems)
+        {
+            item.PropertyChanged += DeviceItem_PropertyChanged;
+        }
+    }
+
+    private void ImmediateControlChanged(object sender, RoutedEventArgs e) => ApplyChangesIfReady();
+    private void ImmediateSelectionChanged(object sender, SelectionChangedEventArgs e) => ApplyChangesIfReady();
+
+    private void DeviceItem_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(DeviceSelectionItem.IsSelected) &&
+            _deviceItems.All(item => !item.IsSelected) && sender is DeviceSelectionItem changedItem)
+        {
+            changedItem.IsSelected = true;
+            return;
+        }
+        ApplyChangesIfReady();
+    }
+
+    private void ApplyChangesIfReady()
+    {
+        if (!_initializing)
+        {
+            ApplyChanges();
+        }
+    }
 
     private void MuteOverlayPlacementButton_Click(object sender, RoutedEventArgs e) =>
         MuteOverlayPlacementRequested?.Invoke(this, EventArgs.Empty);
@@ -240,6 +298,7 @@ public partial class SettingsWindow : Window
         else if (target == "Mid") _midColor = selected;
         else _highColor = selected;
         UpdateColorButtons();
+        ApplyChangesIfReady();
     }
 
     private void UpdateColorButtons()
@@ -275,6 +334,7 @@ public partial class SettingsWindow : Window
             _pendingHotkeyVirtualKey = 0;
             _capturingHotkey = false;
             UpdateHotkeyButton();
+            ApplyChangesIfReady();
             return;
         }
 
@@ -302,6 +362,7 @@ public partial class SettingsWindow : Window
         _pendingHotkeyVirtualKey = KeyInterop.VirtualKeyFromKey(key);
         _capturingHotkey = false;
         UpdateHotkeyButton();
+        ApplyChangesIfReady();
         e.Handled = true;
     }
 
@@ -340,30 +401,31 @@ public partial class SettingsWindow : Window
         _deviceItems.Move(oldIndex, newIndex);
         DeviceListBox.SelectedItem = item;
         DeviceListBox.ScrollIntoView(item);
+        ApplyChangesIfReady();
     }
 
     private bool IsEnglish => UiLanguageComboBox.SelectedIndex == 1;
 
-    private static (string Label, OverlayPlacement Value)[] GetPlacements(bool english) => english
+    private static PlacementOption[] GetPlacements(bool english) => english
         ?
         [
-            ("Bottom right", OverlayPlacement.BottomRight),
-            ("Bottom center", OverlayPlacement.BottomCenter),
-            ("Bottom left", OverlayPlacement.BottomLeft),
-            ("Top right", OverlayPlacement.TopRight),
-            ("Top center", OverlayPlacement.TopCenter),
-            ("Top left", OverlayPlacement.TopLeft),
-            ("Custom", OverlayPlacement.Custom)
+            new("Bottom right", OverlayPlacement.BottomRight),
+            new("Bottom center", OverlayPlacement.BottomCenter),
+            new("Bottom left", OverlayPlacement.BottomLeft),
+            new("Top right", OverlayPlacement.TopRight),
+            new("Top center", OverlayPlacement.TopCenter),
+            new("Top left", OverlayPlacement.TopLeft),
+            new("Custom", OverlayPlacement.Custom)
         ]
         :
         [
-            ("右下", OverlayPlacement.BottomRight),
-            ("下中央", OverlayPlacement.BottomCenter),
-            ("左下", OverlayPlacement.BottomLeft),
-            ("右上", OverlayPlacement.TopRight),
-            ("上中央", OverlayPlacement.TopCenter),
-            ("左上", OverlayPlacement.TopLeft),
-            ("自由配置", OverlayPlacement.Custom)
+            new("右下", OverlayPlacement.BottomRight),
+            new("下中央", OverlayPlacement.BottomCenter),
+            new("左下", OverlayPlacement.BottomLeft),
+            new("右上", OverlayPlacement.TopRight),
+            new("上中央", OverlayPlacement.TopCenter),
+            new("左上", OverlayPlacement.TopLeft),
+            new("自由配置", OverlayPlacement.Custom)
         ];
 
     private void UiLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -374,6 +436,7 @@ public partial class SettingsWindow : Window
         }
 
         ApplyLanguage();
+        ApplyChangesIfReady();
     }
 
     private void ApplyLanguage()
@@ -384,8 +447,6 @@ public partial class SettingsWindow : Window
             ? placement
             : _settings.Placement;
         PlacementComboBox.ItemsSource = GetPlacements(IsEnglish);
-        PlacementComboBox.DisplayMemberPath = "Item1";
-        PlacementComboBox.SelectedValuePath = "Item2";
         PlacementComboBox.SelectedValue = selectedPlacement;
         UpdateHotkeyButton();
     }
@@ -419,4 +480,13 @@ public partial class SettingsWindow : Window
     }
 
     private string T(string japanese, string english) => IsEnglish ? english : japanese;
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(nint hwnd, int attribute, ref int value, int valueSize);
+}
+
+public sealed record PlacementOption(string Label, OverlayPlacement Value);
+public sealed class SettingsChangedEventArgs(bool requiresReconnect) : EventArgs
+{
+    public bool RequiresReconnect { get; } = requiresReconnect;
 }

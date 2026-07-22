@@ -4,9 +4,19 @@
         Title="MicMeter 設定" Icon="Assets/app-icon.png" Width="500" Height="790"
         MinWidth="450" MinHeight="560"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResizeWithGrip"
+        SourceInitialized="Window_SourceInitialized"
         PreviewKeyDown="Window_PreviewKeyDown"
         Background="#FF0D131A" Foreground="#FFE7EEF6">
     <Window.Resources>
+        <!-- WPF's stock ComboBox and selector visuals use these system brushes internally. -->
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#FF17212C" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#FFEAF2FA" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#FF17212C" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#FFEAF2FA" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#FF465563" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFFFFFFF" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#FF303C48" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#FFFFFFFF" />
         <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="#FFE7EEF6" />
         </Style>
@@ -21,10 +31,76 @@
             <Setter Property="Background" Value="#FF17212C" />
             <Setter Property="Foreground" Value="#FFEAF2FA" />
             <Setter Property="BorderBrush" Value="#FF344A5F" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton x:Name="DropDownToggle" Focusable="False"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                          BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border x:Name="ComboBorder" Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                                            <Grid>
+                                                <ContentPresenter Margin="0,0,26,0" VerticalAlignment="Center"
+                                                                  Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                                  ContentTemplate="{Binding SelectionBoxItemTemplate, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                                  ContentTemplateSelector="{Binding ItemTemplateSelector, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                                  TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ComboBox}}" />
+                                                <Path Data="M 0 0 L 8 0 L 4 5 Z" Fill="#FFB8C7D4" Width="8" Height="5"
+                                                      HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="ComboBorder" Property="Background" Value="#FF24313D" />
+                                                <Setter TargetName="ComboBorder" Property="BorderBrush" Value="#FF65798B" />
+                                            </Trigger>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="ComboBorder" Property="Background" Value="#FF2D3A46" />
+                                                <Setter TargetName="ComboBorder" Property="BorderBrush" Value="#FF91A4B5" />
+                                            </Trigger>
+                                            <Trigger Property="IsEnabled" Value="False">
+                                                <Setter TargetName="ComboBorder" Property="Opacity" Value="0.5" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True" Focusable="False"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}" PopupAnimation="Slide">
+                                <Border Background="#FF17212C" BorderBrush="#FF65798B" BorderThickness="1"
+                                        MinWidth="{Binding ActualWidth, ElementName=DropDownToggle}" MaxHeight="260">
+                                    <ScrollViewer Margin="2" SnapsToDevicePixels="True">
+                                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained" />
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style TargetType="ComboBoxItem">
             <Setter Property="Background" Value="#FF17212C" />
             <Setter Property="Foreground" Value="#FFEAF2FA" />
+            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Style.Triggers>
+                <Trigger Property="IsHighlighted" Value="True">
+                    <Setter Property="Background" Value="#FF303C48" />
+                    <Setter Property="Foreground" Value="#FFFFFFFF" />
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#FF465563" />
+                    <Setter Property="Foreground" Value="#FFFFFFFF" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
         <Style TargetType="ListBox">
             <Setter Property="Background" Value="#FF111A23" />
@@ -34,6 +110,29 @@
         <Style TargetType="ListBoxItem">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Foreground" Value="#FFEAF2FA" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="ItemBorder" Background="{TemplateBinding Background}"
+                                BorderBrush="Transparent" BorderThickness="1" Padding="2">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#FF303C48" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#FF465563" />
+                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="#FF708190" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="#FF91A4B5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style TargetType="CheckBox">
             <Setter Property="Foreground" Value="#FFDCE7F1" />
@@ -43,6 +142,53 @@
             <Setter Property="Foreground" Value="#FFEAF2FA" />
             <Setter Property="BorderBrush" Value="#FF344A5F" />
             <Setter Property="Padding" Value="6,3" />
+            <Setter Property="SelectionBrush" Value="#FF516170" />
+            <Setter Property="SelectionOpacity" Value="1" />
+        </Style>
+        <Style TargetType="ScrollBar">
+            <Setter Property="Background" Value="#FF101820" />
+            <Setter Property="Width" Value="12" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Grid x:Name="Root" Background="#FF101820">
+                            <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageUpCommand" Background="Transparent" BorderThickness="0" />
+                                </Track.DecreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Background="#FF52616E" BorderBrush="#FF71818F" BorderThickness="1">
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Border x:Name="ThumbBorder" Background="{TemplateBinding Background}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                                                        CornerRadius="5" Margin="2" />
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="ThumbBorder" Property="Background" Value="#FF71818F" />
+                                                    </Trigger>
+                                                    <Trigger Property="IsDragging" Value="True">
+                                                        <Setter TargetName="ThumbBorder" Property="Background" Value="#FF91A4B5" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageDownCommand" Background="Transparent" BorderThickness="0" />
+                                </Track.IncreaseRepeatButton>
+                            </Track>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Orientation" Value="Horizontal">
+                                <Setter TargetName="Root" Property="Height" Value="12" />
+                                <Setter Property="Height" Value="12" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Window.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -106,7 +252,7 @@
             </Grid.ColumnDefinitions>
             <StackPanel Margin="0,0,10,0">
                 <TextBlock Text="表示位置" FontWeight="SemiBold" Margin="0,0,0,5" />
-                <ComboBox x:Name="PlacementComboBox" Height="30" />
+                <ComboBox x:Name="PlacementComboBox" Height="30" DisplayMemberPath="Label" SelectedValuePath="Value" />
             </StackPanel>
             <StackPanel Grid.Column="1" Margin="10,0,0,0">
                 <TextBlock Text="セグメント数" FontWeight="SemiBold" Margin="0,0,0,5" />
@@ -155,6 +301,7 @@
                 </ComboBox>
             </Grid>
             <CheckBox x:Name="TopmostCheckBox" Content="常に手前に表示" Margin="0,4" />
+            <CheckBox x:Name="StartWithWindowsCheckBox" Content="Windows起動時に自動起動" Margin="0,4" />
             <Grid Margin="0,6,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="150" />
@@ -212,8 +359,7 @@
                    Text="細くリサイズすると文字は自動で隠れ、ミュートとリスニングは点表示になります。耳ボタンはヘッドホン使用を推奨します。" />
 
         <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="キャンセル" Width="90" Margin="0,0,10,0" Click="CancelButton_Click" />
-            <Button Content="保存" Width="90" IsDefault="True" Click="SaveButton_Click" />
+            <Button Content="閉じる" Width="90" IsDefault="True" Click="CloseButton_Click" />
         </StackPanel>
     </Grid>
     </ScrollViewer>

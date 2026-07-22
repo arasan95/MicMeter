@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Drawing;
+using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Controls.Primitives;
@@ -35,6 +36,7 @@ public partial class MainWindow : Window
     private DateTime _lastTick = DateTime.UtcNow;
     private DateTime _nextTrayIconUpdate = DateTime.MinValue;
     private DateTime _nextReconnect = DateTime.MinValue;
+    private DateTime _nextHotkeyRegistrationAttempt = DateTime.MinValue;
     private bool _reallyClosing;
     private bool _isCompact;
     private SettingsWindow? _settingsWindow;
@@ -49,6 +51,8 @@ public partial class MainWindow : Window
         _muteNotificationWindow = new MuteNotificationWindow(_settings, _settingsStore);
         _hotkey.Pressed += (_, _) => ToggleMuteAll();
         SourceInitialized += (_, _) => ConfigureHotkey();
+        SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
+        SystemEvents.SessionSwitch += SystemEvents_SessionSwitch;
         ApplySettings(reconnect: true);
 
         _meterTimer = new DispatcherTimer(DispatcherPriority.Render) { Interval = MeterInterval };
@@ -59,7 +63,7 @@ public partial class MainWindow : Window
         _trayClickTimer.Tick += (_, _) =>
         {
             _trayClickTimer.Stop();
-            ToggleTopDeviceMute();
+            ToggleMuteAll();
         };
         _applicationIcon = System.Drawing.Icon.ExtractAssociatedIcon(Environment.ProcessPath!) ??
                            (System.Drawing.Icon)SystemIcons.Application.Clone();
@@ -124,6 +128,13 @@ public partial class MainWindow : Window
         var topDeviceClipping = false;
         string? topDeviceName = null;
         var topMonitor = _microphones.Monitors.FirstOrDefault();
+
+        if (_settingsWindow is null && _settings.MuteHotkeyEnabled && !_hotkey.IsRegistered &&
+            now >= _nextHotkeyRegistrationAttempt)
+        {
+            _nextHotkeyRegistrationAttempt = now.AddSeconds(10);
+            ConfigureHotkey();
+        }
 
         foreach (var monitor in _microphones.Monitors)
         {
@@ -460,20 +471,51 @@ public partial class MainWindow : Window
 
     private void ToggleMuteAll()
     {
-        _microphones.ToggleMuteAll();
+        var shouldMute = _microphones.Monitors.Count == 0 ||
+                         _microphones.Monitors.Any(monitor => !monitor.IsMuted);
+        if (_microphones.Monitors.Any(monitor => !monitor.IsRunning) ||
+            _microphones.Monitors.Count < _settings.DeviceIds.Count)
+        {
+            ConnectDevices();
+        }
+
+        _microphones.SetMuteAll(shouldMute);
+        if (_microphones.Monitors.Any(monitor => !monitor.IsRunning))
+        {
+            ConnectDevices();
+            _microphones.SetMuteAll(shouldMute);
+        }
         MeterTimer_Tick(null, EventArgs.Empty);
     }
 
-    private void ToggleTopDeviceMute()
+    private void SystemEvents_PowerModeChanged(object sender, PowerModeChangedEventArgs e)
     {
-        var topDevice = _microphones.Monitors.FirstOrDefault();
-        if (topDevice is null)
+        if (e.Mode == PowerModes.Resume)
+        {
+            RecoverAfterIdle();
+        }
+    }
+
+    private void SystemEvents_SessionSwitch(object sender, SessionSwitchEventArgs e)
+    {
+        if (e.Reason == SessionSwitchReason.SessionUnlock || e.Reason == SessionSwitchReason.ConsoleConnect)
+        {
+            RecoverAfterIdle();
+        }
+    }
+
+    private async void RecoverAfterIdle()
+    {
+        await Task.Delay(TimeSpan.FromSeconds(2));
+        if (_reallyClosing)
         {
             return;
         }
-
-        _microphones.ToggleMute(topDevice.DeviceId);
-        MeterTimer_Tick(null, EventArgs.Empty);
+        await Dispatcher.InvokeAsync(() =>
+        {
+            ConnectDevices();
+            ConfigureHotkey();
+        });
     }
 
     private void ConfigureHotkey()
@@ -549,9 +591,9 @@ public partial class MainWindow : Window
         _settingsWindow = dialog;
         _hotkey.Unregister();
         dialog.MuteOverlayPlacementRequested += (_, _) => _muteNotificationWindow.ShowPlacementPreview();
-        dialog.SettingsSaved += (_, _) =>
+        dialog.SettingsChanged += (_, args) =>
         {
-            ApplySettings(reconnect: true);
+            ApplySettings(reconnect: args.RequiresReconnect);
             UpdateTrayMenuLanguage();
             if (_muteNotificationWindow.IsPlacementPreview)
             {
@@ -658,6 +700,8 @@ public partial class MainWindow : Window
 
         _meterTimer.Stop();
         _trayClickTimer.Stop();
+        SystemEvents.PowerModeChanged -= SystemEvents_PowerModeChanged;
+        SystemEvents.SessionSwitch -= SystemEvents_SessionSwitch;
         _settingsStore.Save(_settings);
         _trayIcon.Visible = false;
         _trayIcon.Dispose();

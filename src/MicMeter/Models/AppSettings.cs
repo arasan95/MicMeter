@@ -13,6 +13,7 @@ public sealed class AppSettings
     public double? CustomLeft { get; set; }
     public double? CustomTop { get; set; }
     public bool Topmost { get; set; } = true;
+    public bool StartWithWindows { get; set; }
     public bool MuteHotkeyEnabled { get; set; } = true;
     public uint MuteHotkeyModifiers { get; set; } = 0x0001 | 0x0002;
     public int MuteHotkeyVirtualKey { get; set; } = 0x4D;

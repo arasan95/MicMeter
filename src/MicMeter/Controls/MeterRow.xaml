@@ -15,7 +15,13 @@
                     <Button x:Name="HorizontalMuteButton" Width="31" Height="31"
                             Style="{StaticResource OverlayButtonStyle}" ToolTip="このマイクをミュート"
                             Click="MuteButton_Click">
-                        <TextBlock x:Name="HorizontalMicrophoneGlyph" Text="&#xE720;" FontFamily="Segoe MDL2 Assets" FontSize="15" />
+                        <Grid Width="18" Height="18">
+                            <TextBlock Text="&#xE720;" FontFamily="Segoe MDL2 Assets" FontSize="15"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <Line x:Name="HorizontalMuteSlash" X1="2" Y1="2" X2="16" Y2="16"
+                                  Stroke="#FFFF374B" StrokeThickness="2.5" Visibility="Collapsed"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                        </Grid>
                     </Button>
                     <Button x:Name="HorizontalListenButton" Width="31" Height="31"
                             Style="{StaticResource OverlayButtonStyle}" ToolTip="既定の出力でこのマイクを聴く（ヘッドホン推奨）"
@@ -65,7 +71,13 @@
                     <Button x:Name="VerticalMuteButton" Width="34" Height="32"
                             Style="{StaticResource OverlayButtonStyle}" ToolTip="このマイクをミュート"
                             Click="MuteButton_Click">
-                        <TextBlock x:Name="VerticalMicrophoneGlyph" Text="&#xE720;" FontFamily="Segoe MDL2 Assets" FontSize="15" />
+                        <Grid Width="18" Height="18">
+                            <TextBlock Text="&#xE720;" FontFamily="Segoe MDL2 Assets" FontSize="15"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <Line x:Name="VerticalMuteSlash" X1="2" Y1="2" X2="16" Y2="16"
+                                  Stroke="#FFFF374B" StrokeThickness="2.5" Visibility="Collapsed"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                        </Grid>
                     </Button>
                     <Button x:Name="VerticalListenButton" Width="34" Height="32"
                             Style="{StaticResource OverlayButtonStyle}" ToolTip="既定の出力でこのマイクを聴く（ヘッドホン推奨）"

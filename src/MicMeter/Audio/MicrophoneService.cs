@@ -80,9 +80,14 @@ public sealed class MicrophoneService : IDisposable
     public void ToggleMuteAll()
     {
         var shouldMute = _monitors.Any(monitor => !monitor.IsMuted);
+        SetMuteAll(shouldMute);
+    }
+
+    public void SetMuteAll(bool muted)
+    {
         foreach (var monitor in _monitors)
         {
-            monitor.SetMute(shouldMute);
+            monitor.SetMute(muted);
         }
     }
 

@@ -35,8 +35,9 @@ public static class TrayMeterIconRenderer
             }
             else if (isMuted)
             {
-                using var mutedBrush = new SolidBrush(Color.FromArgb(255, 239, 68, 68));
-                graphics.FillEllipse(mutedBrush, 8, 8, 16, 16);
+                DrawSegments(graphics, levelDb, lowColor, midColor, highColor,
+                    midThresholdDb, highThresholdDb);
+                DrawMuteSlash(graphics);
             }
             else
             {
@@ -61,6 +62,22 @@ public static class TrayMeterIconRenderer
         {
             DestroyIcon(handle);
         }
+    }
+
+    private static void DrawMuteSlash(Graphics graphics)
+    {
+        using var shadowPen = new Pen(Color.FromArgb(230, 10, 14, 18), 6)
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round
+        };
+        using var mutePen = new Pen(Color.FromArgb(255, 255, 55, 75), 3.5f)
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round
+        };
+        graphics.DrawLine(shadowPen, 7, 7, 25, 25);
+        graphics.DrawLine(mutePen, 7, 7, 25, 25);
     }
 
     private static void DrawSegments(Graphics graphics, double levelDb, string lowColor, string midColor,

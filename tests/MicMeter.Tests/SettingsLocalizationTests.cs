@@ -30,9 +30,14 @@ public sealed class SettingsLocalizationTests
                     ((CheckBox)window.FindName("PlayMuteSoundsCheckBox")).Content);
                 Assert.Equal("Mute overlay",
                     ((CheckBox)window.FindName("ShowMuteOverlayCheckBox")).Content);
+                Assert.Equal("Start with Windows",
+                    ((CheckBox)window.FindName("StartWithWindowsCheckBox")).Content);
                 Assert.Equal("Position mute overlay", FindButton(window, "Position mute overlay").Content);
-                Assert.Equal("Save", FindButton(window, "Save").Content);
-                Assert.Equal("Cancel", FindButton(window, "Cancel").Content);
+                Assert.Equal("Close", FindButton(window, "Close").Content);
+
+                var placement = (ComboBox)window.FindName("PlacementComboBox");
+                Assert.Equal(7, placement.Items.Count);
+                Assert.NotNull(placement.SelectedItem);
 
                 ((ComboBox)window.FindName("UiLanguageComboBox")).SelectedIndex = 0;
                 Assert.Equal("MicMeter 設定", window.Title);
