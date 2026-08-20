@@ -1,15 +1,13 @@
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Runtime.InteropServices;
+using SkiaSharp;
 
 namespace MicMeter.Services;
 
 public static class TrayMeterIconRenderer
 {
-    private const int CanvasSize = 32;
+    private const float CanvasSize = 32;
     private const int SegmentCount = 8;
 
-    public static Icon Create(
+    public static byte[] CreatePng(
         double levelDb,
         bool isMuted,
         bool isConnected,
@@ -20,145 +18,136 @@ public static class TrayMeterIconRenderer
         double midThresholdDb,
         double highThresholdDb)
     {
-        using var bitmap = new Bitmap(CanvasSize, CanvasSize, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        using (var graphics = Graphics.FromImage(bitmap))
+        // macOS renders at 2x (36px) so the image stays crisp on Retina; the
+        // NSImage point size is set to 18pt by MacStatusIcon.
+        var scale = OperatingSystem.IsMacOS() ? 36f / CanvasSize : 1f;
+        var size = (int)Math.Round(CanvasSize * scale);
+        using var bitmap = new SKBitmap(size, size, SKColorType.Bgra8888, SKAlphaType.Premul);
+        using (var canvas = new SKCanvas(bitmap))
         {
-            graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            graphics.Clear(Color.Transparent);
+            canvas.Clear(SKColors.Transparent);
+            canvas.Scale(scale);
 
-            using var background = new SolidBrush(Color.FromArgb(235, 10, 14, 18));
-            graphics.FillRoundedRectangle(background, new Rectangle(2, 1, 28, 30), 5);
+            // The dark rounded background helps the meter stay visible in the
+            // Windows notification area, but looks out of place in the macOS
+            // menu bar where colored template-style icons are the norm.
+            if (!OperatingSystem.IsMacOS())
+            {
+                using var background = new SKPaint { Color = new SKColor(10, 14, 18, 235), IsAntialias = true };
+                canvas.DrawRoundRect(new SKRect(2, 1, 30, 31), 5, 5, background);
+            }
 
             if (!isConnected)
             {
-                DrawDisconnected(graphics);
+                DrawDisconnected(canvas);
             }
             else if (isMuted)
             {
-                DrawSegments(graphics, levelDb, lowColor, midColor, highColor,
-                    midThresholdDb, highThresholdDb);
-                DrawMuteSlash(graphics);
+                DrawSegments(canvas, levelDb, lowColor, midColor, highColor, midThresholdDb, highThresholdDb);
+                DrawMuteSlash(canvas);
             }
             else
             {
-                DrawSegments(graphics, levelDb, lowColor, midColor, highColor,
-                    midThresholdDb, highThresholdDb);
+                DrawSegments(canvas, levelDb, lowColor, midColor, highColor, midThresholdDb, highThresholdDb);
             }
 
             if (isClipping && isConnected && !isMuted)
             {
-                using var clipPen = new Pen(Color.FromArgb(255, 255, 55, 75), 2);
-                graphics.DrawRoundedRectangle(clipPen, new Rectangle(2, 1, 27, 29), 5);
+                using var clipPen = new SKPaint
+                {
+                    Color = new SKColor(255, 55, 75, 255),
+                    IsAntialias = true,
+                    Style = SKPaintStyle.Stroke,
+                    StrokeWidth = 2
+                };
+                canvas.DrawRoundRect(new SKRect(2, 1, 29, 30), 5, 5, clipPen);
             }
         }
 
-        var handle = bitmap.GetHicon();
-        try
-        {
-            using var borrowed = Icon.FromHandle(handle);
-            return (Icon)borrowed.Clone();
-        }
-        finally
-        {
-            DestroyIcon(handle);
-        }
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        return data.ToArray();
     }
 
-    private static void DrawMuteSlash(Graphics graphics)
+    private static void DrawMuteSlash(SKCanvas canvas)
     {
-        using var shadowPen = new Pen(Color.FromArgb(230, 10, 14, 18), 6)
+        using var shadowPen = new SKPaint
         {
-            StartCap = LineCap.Round,
-            EndCap = LineCap.Round
+            Color = new SKColor(10, 14, 18, 230),
+            IsAntialias = true,
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = 6,
+            StrokeCap = SKStrokeCap.Round
         };
-        using var mutePen = new Pen(Color.FromArgb(255, 255, 55, 75), 3.5f)
+        using var mutePen = new SKPaint
         {
-            StartCap = LineCap.Round,
-            EndCap = LineCap.Round
+            Color = new SKColor(255, 55, 75, 255),
+            IsAntialias = true,
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = 3.5f,
+            StrokeCap = SKStrokeCap.Round
         };
-        graphics.DrawLine(shadowPen, 7, 7, 25, 25);
-        graphics.DrawLine(mutePen, 7, 7, 25, 25);
+        canvas.DrawLine(7, 7, 25, 25, shadowPen);
+        canvas.DrawLine(7, 7, 25, 25, mutePen);
     }
 
-    private static void DrawSegments(Graphics graphics, double levelDb, string lowColor, string midColor,
-        string highColor, double midThresholdDb, double highThresholdDb)
+    private static void DrawSegments(
+        SKCanvas canvas,
+        double levelDb,
+        string lowColor,
+        string midColor,
+        string highColor,
+        double midThresholdDb,
+        double highThresholdDb)
     {
         var activeCount = (int)Math.Ceiling(LevelMath.NormalizeDb(levelDb) * SegmentCount);
         var colors = new[]
         {
-            ParseColor(lowColor, Color.FromArgb(46, 230, 166)),
-            ParseColor(midColor, Color.FromArgb(255, 200, 87)),
-            ParseColor(highColor, Color.FromArgb(255, 93, 115))
+            ParseColor(lowColor, new SKColor(46, 230, 166, 255)),
+            ParseColor(midColor, new SKColor(255, 200, 87, 255)),
+            ParseColor(highColor, new SKColor(255, 93, 115, 255))
         };
-        using var inactiveBrush = new SolidBrush(Color.FromArgb(255, 47, 57, 66));
-        using var lowBrush = new SolidBrush(colors[0]);
-        using var midBrush = new SolidBrush(colors[1]);
-        using var highBrush = new SolidBrush(colors[2]);
-        var brushes = new[] { lowBrush, midBrush, highBrush };
+        var inactive = new SKColor(47, 57, 66, 255);
 
-        const int left = 7;
-        const int width = 18;
-        const int height = 2;
-        const int gap = 1;
-        const int bottom = 27;
+        const float left = 7;
+        const float width = 18;
+        const float height = 2;
+        const float gap = 1;
+        const float bottom = 27;
         for (var index = 0; index < SegmentCount; index++)
         {
             var y = bottom - height - (index * (height + gap));
             var segmentDb = LevelMath.MinimumDb + ((index + 1.0) / SegmentCount * -LevelMath.MinimumDb);
             var band = MeterBandSelector.Select(segmentDb, midThresholdDb, highThresholdDb);
-            var brush = index < activeCount ? brushes[band] : inactiveBrush;
-            graphics.FillRectangle(brush, left, y, width, height);
+            var color = index < activeCount ? colors[band] : inactive;
+            using var paint = new SKPaint { Color = color, IsAntialias = true };
+            canvas.DrawRect(new SKRect(left, y, left + width, y + height), paint);
         }
     }
 
-    private static void DrawDisconnected(Graphics graphics)
+    private static void DrawDisconnected(SKCanvas canvas)
     {
-        using var pen = new Pen(Color.FromArgb(255, 125, 135, 145), 3)
+        using var pen = new SKPaint
         {
-            StartCap = LineCap.Round,
-            EndCap = LineCap.Round
+            Color = new SKColor(125, 135, 145, 255),
+            IsAntialias = true,
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = 3,
+            StrokeCap = SKStrokeCap.Round
         };
-        graphics.DrawLine(pen, 10, 10, 22, 22);
-        graphics.DrawLine(pen, 22, 10, 10, 22);
+        canvas.DrawLine(10, 10, 22, 22, pen);
+        canvas.DrawLine(22, 10, 10, 22, pen);
     }
 
-    private static Color ParseColor(string value, Color fallback)
+    private static SKColor ParseColor(string value, SKColor fallback)
     {
         try
         {
-            return ColorTranslator.FromHtml(value);
+            return SKColor.Parse(value);
         }
         catch
         {
             return fallback;
         }
     }
-
-    private static void FillRoundedRectangle(this Graphics graphics, Brush brush, Rectangle bounds, int radius)
-    {
-        using var path = CreateRoundedRectangle(bounds, radius);
-        graphics.FillPath(brush, path);
-    }
-
-    private static void DrawRoundedRectangle(this Graphics graphics, Pen pen, Rectangle bounds, int radius)
-    {
-        using var path = CreateRoundedRectangle(bounds, radius);
-        graphics.DrawPath(pen, path);
-    }
-
-    private static GraphicsPath CreateRoundedRectangle(Rectangle bounds, int radius)
-    {
-        var diameter = radius * 2;
-        var path = new GraphicsPath();
-        path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90);
-        path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90);
-        path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90);
-        path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90);
-        path.CloseFigure();
-        return path;
-    }
-
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool DestroyIcon(IntPtr handle);
 }

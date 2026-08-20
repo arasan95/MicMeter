@@ -4,6 +4,14 @@ obj/
 .idea/
 references/
 artifacts/
+dist/
 TestResults/
 *.user
 *.suo
+.DS_Store
+
+# Private research notes
+research/
+
+# Unrelated projects in working tree
+FineTune/

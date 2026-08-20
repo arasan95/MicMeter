@@ -21,9 +21,21 @@ env:
 
 jobs:
   build:
-    name: Build and test
-    runs-on: windows-latest
-    timeout-minutes: 15
+    name: Build and test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            runtime: win-x64
+            framework: net10.0-windows
+            artifact: MicMeter-win-x64
+          - os: macos-latest
+            runtime: osx-arm64
+            framework: net10.0
+            artifact: MicMeter-osx-arm64
 
     steps:
       - name: Checkout
@@ -34,29 +46,21 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Restore
-        run: dotnet restore tests/MicMeter.Tests/MicMeter.Tests.csproj
-
-      - name: Build
-        run: dotnet build tests/MicMeter.Tests/MicMeter.Tests.csproj --configuration Release --no-restore
-
       - name: Test
-        run: dotnet test tests/MicMeter.Tests/MicMeter.Tests.csproj --configuration Release --no-build --no-restore --logger "trx;LogFileName=test-results.trx"
+        run: dotnet test tests/MicMeter.Core.Tests/MicMeter.Core.Tests.csproj --configuration Release
 
-      - name: Publish win-x64
-        run: dotnet publish src/MicMeter/MicMeter.csproj --configuration Release --runtime win-x64 --self-contained false -p:PublishSingleFile=true --output artifacts/MicMeter-win-x64
+      - name: Publish
+        run: dotnet publish src/MicMeter/MicMeter.csproj --configuration Release --runtime ${{ matrix.runtime }} --framework ${{ matrix.framework }} --self-contained false -p:PublishSingleFile=true --output artifacts/${{ matrix.artifact }}
+
+      - name: Package macOS app
+        if: matrix.os == 'macos-latest'
+        run: bash scripts/package-macos.sh artifacts/${{ matrix.artifact }} artifacts
 
       - name: Upload application
         uses: actions/upload-artifact@v7
         with:
-          name: MicMeter-win-x64
-          path: artifacts/MicMeter-win-x64/
-          if-no-files-found: error
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: test-results
-          path: tests/MicMeter.Tests/TestResults/test-results.trx
+          name: ${{ matrix.artifact }}
+          path: |
+            artifacts/${{ matrix.artifact }}/
+            artifacts/MicMeter.app/
           if-no-files-found: warn

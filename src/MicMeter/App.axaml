@@ -1,0 +1,16 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="MicMeter.App"
+             RequestedThemeVariant="Dark">
+  <Application.Styles>
+    <FluentTheme />
+    <Style Selector="Button.overlay">
+      <Setter Property="Background" Value="#101E2A36" />
+      <Setter Property="Foreground" Value="#FFEAF2FA" />
+      <Setter Property="BorderBrush" Value="#283E5368" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="CornerRadius" Value="9" />
+    </Style>
+  </Application.Styles>
+</Application>
