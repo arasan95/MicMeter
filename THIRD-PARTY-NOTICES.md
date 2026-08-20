@@ -2,6 +2,22 @@
 
 MicMeter uses the following third-party package and its dependencies:
 
+## BlackHole (macOS virtual loopback driver)
+
+- Project: https://github.com/ExistentialAudio/BlackHole
+- Copyright: © 2019–2026 Existential Audio Inc.
+- License: GNU General Public License v3.0 (GPL-3.0)
+
+The macOS virtual audio loopback driver shipped in `drivers/MicMeterLoopback/`
+is derived from the BlackHole CoreAudio HAL plugin. It has been renamed to
+"MicMeter" (device UID `MicMeter_UID`, bundle ID `com.arasan95.MicMeterLoopback`)
+so it does not conflict with a BlackHole installation and does not use the
+BlackHole name, trademarks, or branding.
+
+As required by GPL-3.0, the derived driver is distributed under GPL-3.0. The
+full license text is included at `drivers/MicMeterLoopback/LICENSE`. The BlackHole
+name and trademark are not used in the derived driver.
+
 ## NAudio.Wasapi / NAudio.Core
 
 - Project: https://github.com/naudio/NAudio

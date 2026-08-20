@@ -1,130 +1,103 @@
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Media;
 using MicMeter.Services;
-using WpfOrientation = System.Windows.Controls.Orientation;
-using MediaBrushes = System.Windows.Media.Brushes;
-using WpfPoint = System.Windows.Point;
+using AvaloniaOrientation = Avalonia.Layout.Orientation;
 
 namespace MicMeter.Controls;
 
-public sealed class SegmentMeter : FrameworkElement
+public sealed class SegmentMeter : Control
 {
-    public static readonly DependencyProperty LevelDbProperty = DependencyProperty.Register(
-        nameof(LevelDb), typeof(double), typeof(SegmentMeter),
-        new FrameworkPropertyMetadata(LevelMath.MinimumDb, FrameworkPropertyMetadataOptions.AffectsRender));
+    private static readonly IBrush InactiveBrush = new SolidColorBrush(Color.FromRgb(35, 47, 59));
+    private static readonly IBrush MutedBrush = new SolidColorBrush(Color.FromRgb(77, 39, 49));
+    private static readonly IBrush GreenBrush = new SolidColorBrush(Color.FromRgb(46, 230, 166));
+    private static readonly IBrush YellowBrush = new SolidColorBrush(Color.FromRgb(255, 200, 87));
+    private static readonly IBrush RedBrush = new SolidColorBrush(Color.FromRgb(255, 93, 115));
+    private static readonly IPen PeakPen = new Pen(new SolidColorBrush(Color.FromRgb(125, 211, 252)), 1.5);
 
-    public static readonly DependencyProperty SegmentCountProperty = DependencyProperty.Register(
-        nameof(SegmentCount), typeof(int), typeof(SegmentMeter),
-        new FrameworkPropertyMetadata(20, FrameworkPropertyMetadataOptions.AffectsRender));
-
-    public static readonly DependencyProperty IsMutedProperty = DependencyProperty.Register(
-        nameof(IsMuted), typeof(bool), typeof(SegmentMeter),
-        new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
-
-    public static readonly DependencyProperty PeakDbProperty = DependencyProperty.Register(
-        nameof(PeakDb), typeof(double), typeof(SegmentMeter),
-        new FrameworkPropertyMetadata(LevelMath.MinimumDb, FrameworkPropertyMetadataOptions.AffectsRender));
-
-    public static readonly DependencyProperty OrientationProperty = DependencyProperty.Register(
-        nameof(Orientation), typeof(WpfOrientation), typeof(SegmentMeter),
-        new FrameworkPropertyMetadata(WpfOrientation.Horizontal, FrameworkPropertyMetadataOptions.AffectsRender));
-
-    public static readonly DependencyProperty LowLevelBrushProperty = DependencyProperty.Register(
-        nameof(LowLevelBrush), typeof(System.Windows.Media.Brush), typeof(SegmentMeter),
-        new FrameworkPropertyMetadata(new SolidColorBrush(System.Windows.Media.Color.FromRgb(46, 230, 166)), FrameworkPropertyMetadataOptions.AffectsRender));
-
-    public static readonly DependencyProperty MidLevelBrushProperty = DependencyProperty.Register(
-        nameof(MidLevelBrush), typeof(System.Windows.Media.Brush), typeof(SegmentMeter),
-        new FrameworkPropertyMetadata(new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 200, 87)), FrameworkPropertyMetadataOptions.AffectsRender));
-
-    public static readonly DependencyProperty HighLevelBrushProperty = DependencyProperty.Register(
-        nameof(HighLevelBrush), typeof(System.Windows.Media.Brush), typeof(SegmentMeter),
-        new FrameworkPropertyMetadata(new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 93, 115)), FrameworkPropertyMetadataOptions.AffectsRender));
-
-    public static readonly DependencyProperty MidLevelThresholdDbProperty = DependencyProperty.Register(
-        nameof(MidLevelThresholdDb), typeof(double), typeof(SegmentMeter),
-        new FrameworkPropertyMetadata(-12.0, FrameworkPropertyMetadataOptions.AffectsRender));
-
-    public static readonly DependencyProperty HighLevelThresholdDbProperty = DependencyProperty.Register(
-        nameof(HighLevelThresholdDb), typeof(double), typeof(SegmentMeter),
-        new FrameworkPropertyMetadata(-6.0, FrameworkPropertyMetadataOptions.AffectsRender));
-
-    private static readonly System.Windows.Media.Brush InactiveBrush = Freeze(new SolidColorBrush(System.Windows.Media.Color.FromRgb(35, 47, 59)));
-    private static readonly System.Windows.Media.Brush MutedBrush = Freeze(new SolidColorBrush(System.Windows.Media.Color.FromRgb(77, 39, 49)));
-    private static readonly System.Windows.Media.Brush GreenBrush = Freeze(new SolidColorBrush(System.Windows.Media.Color.FromRgb(46, 230, 166)));
-    private static readonly System.Windows.Media.Brush YellowBrush = Freeze(new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 200, 87)));
-    private static readonly System.Windows.Media.Brush RedBrush = Freeze(new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 93, 115)));
-    private static readonly System.Windows.Media.Pen PeakPen = Freeze(new System.Windows.Media.Pen(
-        new SolidColorBrush(System.Windows.Media.Color.FromRgb(125, 211, 252)), 1.5));
+    private double _levelDb = LevelMath.MinimumDb;
+    private int _segmentCount = 20;
+    private bool _isMuted;
+    private double _peakDb = LevelMath.MinimumDb;
+    private AvaloniaOrientation _orientation = AvaloniaOrientation.Horizontal;
+    private IBrush _lowBrush = GreenBrush;
+    private IBrush _midBrush = YellowBrush;
+    private IBrush _highBrush = RedBrush;
+    private double _midThresholdDb = -12;
+    private double _highThresholdDb = -6;
 
     public double LevelDb
     {
-        get => (double)GetValue(LevelDbProperty);
-        set => SetValue(LevelDbProperty, value);
+        get => _levelDb;
+        set { _levelDb = value; InvalidateVisual(); }
     }
 
     public int SegmentCount
     {
-        get => (int)GetValue(SegmentCountProperty);
-        set => SetValue(SegmentCountProperty, value);
+        get => _segmentCount;
+        set { _segmentCount = value; InvalidateVisual(); }
     }
 
     public bool IsMuted
     {
-        get => (bool)GetValue(IsMutedProperty);
-        set => SetValue(IsMutedProperty, value);
+        get => _isMuted;
+        set { _isMuted = value; InvalidateVisual(); }
     }
 
     public double PeakDb
     {
-        get => (double)GetValue(PeakDbProperty);
-        set => SetValue(PeakDbProperty, value);
+        get => _peakDb;
+        set { _peakDb = value; InvalidateVisual(); }
     }
 
-    public WpfOrientation Orientation
+    public AvaloniaOrientation Orientation
     {
-        get => (WpfOrientation)GetValue(OrientationProperty);
-        set => SetValue(OrientationProperty, value);
+        get => _orientation;
+        set { _orientation = value; InvalidateVisual(); }
     }
 
-    public System.Windows.Media.Brush LowLevelBrush
+    public IBrush LowLevelBrush
     {
-        get => (System.Windows.Media.Brush)GetValue(LowLevelBrushProperty);
-        set => SetValue(LowLevelBrushProperty, value);
+        get => _lowBrush;
+        set { _lowBrush = value; InvalidateVisual(); }
     }
 
-    public System.Windows.Media.Brush MidLevelBrush
+    public IBrush MidLevelBrush
     {
-        get => (System.Windows.Media.Brush)GetValue(MidLevelBrushProperty);
-        set => SetValue(MidLevelBrushProperty, value);
+        get => _midBrush;
+        set { _midBrush = value; InvalidateVisual(); }
     }
 
-    public System.Windows.Media.Brush HighLevelBrush
+    public IBrush HighLevelBrush
     {
-        get => (System.Windows.Media.Brush)GetValue(HighLevelBrushProperty);
-        set => SetValue(HighLevelBrushProperty, value);
+        get => _highBrush;
+        set { _highBrush = value; InvalidateVisual(); }
     }
 
     public double MidLevelThresholdDb
     {
-        get => (double)GetValue(MidLevelThresholdDbProperty);
-        set => SetValue(MidLevelThresholdDbProperty, value);
+        get => _midThresholdDb;
+        set { _midThresholdDb = value; InvalidateVisual(); }
     }
 
     public double HighLevelThresholdDb
     {
-        get => (double)GetValue(HighLevelThresholdDbProperty);
-        set => SetValue(HighLevelThresholdDbProperty, value);
+        get => _highThresholdDb;
+        set { _highThresholdDb = value; InvalidateVisual(); }
     }
 
-    protected override void OnRender(DrawingContext drawingContext)
+    public override void Render(DrawingContext context)
     {
-        base.OnRender(drawingContext);
+        base.Render(context);
         var count = Math.Clamp(SegmentCount, 8, 40);
         var activeCount = (int)Math.Ceiling(LevelMath.NormalizeDb(LevelDb) * count);
-        var vertical = Orientation == WpfOrientation.Vertical;
-        var length = vertical ? ActualHeight : ActualWidth;
+        var vertical = Orientation == AvaloniaOrientation.Vertical;
+        var length = vertical ? Bounds.Height : Bounds.Width;
+        if (length <= 0)
+        {
+            return;
+        }
+
         var gap = Math.Max(1.0, length / 120.0);
         var segmentLength = Math.Max(1.0, (length - (gap * (count - 1))) / count);
 
@@ -135,39 +108,32 @@ public sealed class SegmentMeter : FrameworkElement
             var brush = IsMuted ? MutedBrush : active ? BrushForDb(segmentDb) : InactiveBrush;
             var offset = index * (segmentLength + gap);
             var rectangle = vertical
-                ? new Rect(0, ActualHeight - offset - segmentLength, ActualWidth, segmentLength)
-                : new Rect(offset, 0, segmentLength, ActualHeight);
-            drawingContext.DrawRoundedRectangle(brush, null, rectangle, 1.2, 1.2);
+                ? new Rect(0, Bounds.Height - offset - segmentLength, Bounds.Width, segmentLength)
+                : new Rect(offset, 0, segmentLength, Bounds.Height);
+            context.DrawRectangle(brush, null, new RoundedRect(rectangle, 1.2));
         }
-
 
         if (!IsMuted && PeakDb > LevelMath.MinimumDb)
         {
             var normalizedPeak = LevelMath.NormalizeDb(PeakDb);
             if (vertical)
             {
-                var y = ActualHeight * (1 - normalizedPeak);
-                drawingContext.DrawLine(PeakPen, new WpfPoint(-1, y), new WpfPoint(ActualWidth + 1, y));
+                var y = Bounds.Height * (1 - normalizedPeak);
+                context.DrawLine(PeakPen, new Point(-1, y), new Point(Bounds.Width + 1, y));
             }
             else
             {
-                var x = ActualWidth * normalizedPeak;
-                drawingContext.DrawLine(PeakPen, new WpfPoint(x, -1), new WpfPoint(x, ActualHeight + 1));
+                var x = Bounds.Width * normalizedPeak;
+                context.DrawLine(PeakPen, new Point(x, -1), new Point(x, Bounds.Height + 1));
             }
         }
     }
 
-    private System.Windows.Media.Brush BrushForDb(double db) =>
+    private IBrush BrushForDb(double db) =>
         MeterBandSelector.Select(db, MidLevelThresholdDb, HighLevelThresholdDb) switch
         {
             2 => HighLevelBrush,
             1 => MidLevelBrush,
             _ => LowLevelBrush
         };
-
-    private static T Freeze<T>(T freezable) where T : Freezable
-    {
-        freezable.Freeze();
-        return freezable;
-    }
 }

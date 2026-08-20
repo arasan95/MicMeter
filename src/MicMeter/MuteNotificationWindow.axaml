@@ -1,0 +1,36 @@
+<Window x:Class="MicMeter.MuteNotificationWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MicMeter mute status"
+        Width="330" Height="104" MinWidth="260" MinHeight="84"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        ExtendClientAreaToDecorationsHint="True"
+        SystemDecorations="None"
+        CanResize="False"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        Topmost="True">
+  <Border x:Name="Shell" Margin="8" Padding="18,12"
+          Background="#F20B1016" BorderBrush="#FFFF4961" BorderThickness="2"
+          CornerRadius="14">
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="56" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <Grid Width="44" Height="48" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Path Data="M15,4 C11.7,4 9,6.7 9,10 L9,23 C9,26.3 11.7,29 15,29 C18.3,29 21,26.3 21,23 L21,10 C21,6.7 18.3,4 15,4 Z M4,21 L4,23 C4,29.1 8.5,34.2 14,35 L14,40 L9,40 L9,43 L21,43 L21,40 L16,40 L16,35 C21.5,34.2 26,29.1 26,23 L26,21 L23,21 L23,23 C23,27.4 19.4,31 15,31 C10.6,31 7,27.4 7,23 L7,21 Z"
+              Fill="#FFEAF2FA" Stretch="Uniform" Margin="5,2" />
+        <Line StartPoint="5,5" EndPoint="39,43" Stroke="#FFFF374B" StrokeThickness="6"
+              StrokeLineCap="Round" />
+      </Grid>
+      <StackPanel Grid.Column="1" VerticalAlignment="Center">
+        <TextBlock x:Name="TitleText" Text="MIC MUTED" Foreground="#FFFFF4F5"
+                   FontSize="22" FontWeight="Bold" />
+        <TextBlock x:Name="DetailText" Text="Microphone is muted" Foreground="#FFB8C3CE"
+                   FontSize="12" TextTrimming="CharacterEllipsis" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</Window>

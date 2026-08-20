@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MicMeter.Audio.Abstractions/MicMeter.Audio.Abstractions.csproj" />
+    <Project Path="src/MicMeter.Audio.Mac/MicMeter.Audio.Mac.csproj" />
+    <Project Path="src/MicMeter.Audio.Windows/MicMeter.Audio.Windows.csproj" />
+    <Project Path="src/MicMeter.Core/MicMeter.Core.csproj" />
+    <Project Path="src/MicMeter/MicMeter.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MicMeter.Core.Tests/MicMeter.Core.Tests.csproj" />
+  </Folder>
+</Solution>

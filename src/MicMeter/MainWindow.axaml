@@ -1,0 +1,38 @@
+<Window x:Class="MicMeter.MainWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:MicMeter.Controls"
+        xmlns:primitives="using:Avalonia.Controls.Primitives"
+        Title="MicMeter"
+        Width="320" Height="64"
+        MinWidth="80" MinHeight="44"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        ExtendClientAreaToDecorationsHint="True"
+        SystemDecorations="None"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Topmost="True">
+  <Border x:Name="ShellBorder"
+          Margin="8"
+          Padding="8,7"
+          BorderBrush="#6B34495E"
+          BorderThickness="1"
+          CornerRadius="14">
+    <Grid>
+      <StackPanel x:Name="RowsPanel" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+      <primitives:Thumb x:Name="ResizeThumb"
+                        Width="18" Height="18"
+                        HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                        Cursor="BottomRightCorner"
+                        DragDelta="ResizeThumb_DragDelta"
+                        DragCompleted="ResizeThumb_DragCompleted">
+        <primitives:Thumb.Template>
+          <ControlTemplate TargetType="primitives:Thumb">
+            <Border Background="Transparent" />
+          </ControlTemplate>
+        </primitives:Thumb.Template>
+      </primitives:Thumb>
+    </Grid>
+  </Border>
+</Window>

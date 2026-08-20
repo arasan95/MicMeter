@@ -1,25 +1,52 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
-    <UseWPF>true</UseWPF>
-    <UseWindowsForms>true</UseWindowsForms>
+    <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <NoWarn>$(NoWarn);AVLN3001</NoWarn>
     <AssemblyName>MicMeter</AssemblyName>
     <RootNamespace>MicMeter</RootNamespace>
-    <Version>0.2.0</Version>
-    <AssemblyVersion>0.2.0.0</AssemblyVersion>
-    <FileVersion>0.2.0.0</FileVersion>
-    <ApplicationIcon>Assets\app-icon.ico</ApplicationIcon>
+    <Version>0.3.0</Version>
+    <AssemblyVersion>0.3.0.0</AssemblyVersion>
+    <FileVersion>0.3.0.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NAudio.Wasapi" Version="2.3.0" />
+    <PackageReference Include="Avalonia" Version="11.3.20" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.20" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.20" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.20" />
+    <PackageReference Include="Avalonia.Controls.ColorPicker" Version="11.3.20" />
+    <PackageReference Include="SkiaSharp" Version="3.119.4" />
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="Assets\app-icon.png" />
+    <ProjectReference Include="..\MicMeter.Core\MicMeter.Core.csproj" />
+    <ProjectReference Include="..\MicMeter.Audio.Abstractions\MicMeter.Audio.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
+    <ProjectReference Include="..\MicMeter.Audio.Windows\MicMeter.Audio.Windows.csproj" />
+    <PackageReference Include="System.Windows.Extensions" Version="10.0.11" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <ProjectReference Include="..\MicMeter.Audio.Mac\MicMeter.Audio.Mac.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\app-icon.png" />
     <Content Include="Assets\Sounds\*.wav" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- Copy the shared-memory helper dylib (built by scripts/build-mute-plugin.sh)
+       into the macOS app output using the standard content-copy mechanism. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <Content Include="$(MSBuildThisFileDirectory)..\..\artifacts\libmicmeter_shm.dylib"
+             CopyToOutputDirectory="PreserveNewest"
+             Link="libmicmeter_shm.dylib"
+             Condition="Exists('$(MSBuildThisFileDirectory)..\..\artifacts\libmicmeter_shm.dylib')" />
   </ItemGroup>
 </Project>

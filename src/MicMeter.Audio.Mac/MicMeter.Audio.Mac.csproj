@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>MicMeter.Audio.Mac</AssemblyName>
+    <RootNamespace>MicMeter.Audio</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MicMeter.Audio.Abstractions\MicMeter.Audio.Abstractions.csproj" />
+  </ItemGroup>
+
+  <!-- Copy the shared-memory helper dylib (built by scripts/build-mute-plugin.sh)
+       next to the output using the standard content-copy mechanism. -->
+  <ItemGroup>
+    <Content Include="$(MSBuildThisFileDirectory)..\..\artifacts\libmicmeter_shm.dylib"
+             CopyToOutputDirectory="PreserveNewest"
+             Link="libmicmeter_shm.dylib"
+             Condition="Exists('$(MSBuildThisFileDirectory)..\..\artifacts\libmicmeter_shm.dylib')" />
+  </ItemGroup>
+</Project>
